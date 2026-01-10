@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>旅途 - Travel Companion</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'milk-tea': '#F3EFE9',
+                        'latte': '#8C7B70',
+                        'matcha': '#A8B5A2',
+                        'dark-grey': '#4A4A4A',
+                    },
+                    fontFamily: {
+                        'noto': ['Noto Sans JP', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        * {
+            font-family: 'Noto Sans JP', sans-serif;
+        }
+
+        /* Hide scrollbars */
+        ::-webkit-scrollbar {
+            display: none;
+        }
+
+        * {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* Custom animations */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(100%);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes pulse-soft {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.7;
+            }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        .slide-up {
+            animation: slideUp 0.3s ease-out;
+        }
+
+        .pulse-soft {
+            animation: pulse-soft 2s infinite;
+        }
+
+        /* Date pill active state */
+        .date-pill.active {
+            background: linear-gradient(135deg, #A8B5A2, #8C7B70);
+            color: white;
+            transform: scale(1.05);
+        }
+
+        /* Map container */
+        #map {
+            height: 100%;
+            width: 100%;
+            border-radius: 12px;
+        }
+
+        /* Nav button active */
+        .nav-btn.active {
+            color: #A8B5A2;
+        }
+
+        .nav-btn.active i {
+            transform: scale(1.1);
+        }
+
+        /* Card hover effect */
+        .itinerary-card {
+            transition: all 0.3s ease;
+        }
+
+        .itinerary-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Input focus styles */
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #A8B5A2;
+            box-shadow: 0 0 0 3px rgba(168, 181, 162, 0.2);
+        }
+
+        /* Button hover */
+        .btn-primary {
+            background: linear-gradient(135deg, #A8B5A2, #8C7B70);
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(168, 181, 162, 0.4);
+        }
+
+        /* Smooth page transitions */
+        .page {
+            display: none;
+            opacity: 0;
+        }
+
+        .page.active {
+            display: block;
+            opacity: 1;
+            animation: fadeIn 0.3s ease-out;
+        }
+    </style>
+</head>
+
+<body class="bg-milk-tea min-h-screen">
+    <!-- App Container -->
+    <div class="max-w-[450px] mx-auto min-h-screen bg-milk-tea relative pb-20">
+
+        <!-- Header -->
+        <header class="sticky top-0 z-40 bg-milk-tea/95 backdrop-blur-sm px-5 py-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-xl font-semibold text-dark-grey">旅途</h1>
+                    <p id="header-destination" class="text-sm text-latte"></p>
+                </div>
+                <button onclick="openSettings()"
+                    class="w-10 h-10 rounded-full bg-white shadow-md flex items-center justify-center text-latte hover:text-matcha transition-colors">
+                    <i class="fa-solid fa-gear"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Page: Itinerary -->
+        <div id="page-itinerary" class="page active px-5">
+            <!-- Date Swiper -->
+            <div id="date-swiper" class="flex gap-3 overflow-x-auto py-3 mb-4">
+                <!-- Dates will be rendered here -->
+            </div>
+
+            <!-- Selected Date Display -->
+            <div class="flex items-center justify-between mb-4">
+                <h2 id="selected-date-display" class="text-lg font-medium text-dark-grey"></h2>
+                <button onclick="openAddItinerary()"
+                    class="px-4 py-2 bg-white rounded-full shadow-md text-sm text-latte hover:text-matcha transition-colors flex items-center gap-2">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>Add</span>
+                </button>
+            </div>
+
+            <!-- Itinerary List -->
+            <div id="itinerary-list" class="space-y-3">
+                <!-- Cards will be rendered here -->
+            </div>
+
+            <!-- Empty State -->
+            <div id="itinerary-empty" class="hidden text-center py-12">
+                <i class="fa-solid fa-calendar-plus text-4xl text-latte/50 mb-4"></i>
+                <p class="text-latte">No plans for this day</p>
+                <p class="text-sm text-latte/70">Tap + to add your first activity</p>
+            </div>
+        </div>
+
+        <!-- Page: Map -->
+        <div id="page-map" class="page px-5">
+            <div class="bg-white rounded-2xl shadow-md overflow-hidden" style="height: calc(100vh - 180px);">
+                <div id="map"></div>
+            </div>
+            <div class="mt-4 flex gap-2">
+                <button onclick="centerMyLocation()"
+                    class="flex-1 py-3 bg-white rounded-xl shadow-md text-sm text-latte hover:text-matcha transition-colors flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-location-crosshairs"></i>
+                    <span>My Location</span>
+                </button>
+                <button onclick="showAllMarkers()"
+                    class="flex-1 py-3 bg-white rounded-xl shadow-md text-sm text-latte hover:text-matcha transition-colors flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-map-pin"></i>
+                    <span>All Spots</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Page: Expenses -->
+        <div id="page-expenses" class="page px-5">
+            <!-- Currency Info -->
+            <div class="bg-white rounded-2xl shadow-md p-5 mb-4">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-12 h-12 rounded-full bg-matcha/20 flex items-center justify-center">
+                        <i class="fa-solid fa-coins text-matcha text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-medium text-dark-grey">Currency Converter</h3>
+                        <p id="currency-info" class="text-sm text-latte"></p>
+                    </div>
+                </div>
+
+                <!-- Input Form -->
+                <div class="space-y-3">
+                    <div>
+                        <label class="text-sm text-latte mb-1 block">Item Name</label>
+                        <input type="text" id="expense-name" placeholder="e.g., Ramen lunch"
+                            class="w-full px-4 py-3 bg-milk-tea rounded-xl text-dark-grey placeholder-latte/50 border border-transparent">
+                    </div>
+                    <div>
+                        <label class="text-sm text-latte mb-1 block">Price (<span
+                                id="currency-label">JPY</span>)</label>
+                        <input type="number" id="expense-price" placeholder="0" oninput="calculateExpense()"
+                            class="w-full px-4 py-3 bg-milk-tea rounded-xl text-dark-grey placeholder-latte/50 border border-transparent text-xl font-medium">
+                    </div>
+
+                    <!-- Conversion Display -->
+                    <div id="conversion-display" class="bg-matcha/10 rounded-xl p-4 text-center">
+                        <p class="text-sm text-latte">Converted Amount</p>
+                        <p id="converted-amount" class="text-2xl font-semibold text-matcha">≈ 0 TWD</p>
+                    </div>
+
+                    <button onclick="addExpense()" class="w-full py-3 btn-primary rounded-xl text-white font-medium">
+                        <i class="fa-solid fa-plus mr-2"></i>Add Expense
+                    </button>
+                </div>
+            </div>
+
+            <!-- Expense List -->
+            <div class="bg-white rounded-2xl shadow-md p-5">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-medium text-dark-grey">Expense History</h3>
+                    <span id="total-expenses" class="text-sm text-matcha font-medium">Total: 0 TWD</span>
+                </div>
+                <div id="expense-list" class="space-y-2">
+                    <!-- Expenses will be rendered here -->
+                </div>
+                <div id="expense-empty" class="hidden text-center py-8">
+                    <i class="fa-solid fa-receipt text-3xl text-latte/50 mb-3"></i>
+                    <p class="text-sm text-latte">No expenses recorded yet</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <nav
+            class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[450px] bg-white/95 backdrop-blur-sm shadow-lg rounded-t-3xl px-6 py-4 z-50">
+            <div class="flex justify-around">
+                <button onclick="switchPage('itinerary')"
+                    class="nav-btn active flex flex-col items-center gap-1 text-latte transition-colors"
+                    data-page="itinerary">
+                    <i class="fa-solid fa-calendar-days text-xl"></i>
+                    <span class="text-xs">Itinerary</span>
+                </button>
+                <button onclick="switchPage('map')"
+                    class="nav-btn flex flex-col items-center gap-1 text-latte transition-colors" data-page="map">
+                    <i class="fa-solid fa-map-location-dot text-xl"></i>
+                    <span class="text-xs">Map</span>
+                </button>
+                <button onclick="switchPage('expenses')"
+                    class="nav-btn flex flex-col items-center gap-1 text-latte transition-colors" data-page="expenses">
+                    <i class="fa-solid fa-wallet text-xl"></i>
+                    <span class="text-xs">Expenses</span>
+                </button>
+            </div>
+        </nav>
+    </div>
+
+    <!-- Setup Wizard Modal -->
+    <div id="wizard-modal" class="fixed inset-0 bg-black/50 z-50 flex items-end justify-center hidden">
+        <div class="bg-white w-full max-w-[450px] rounded-t-3xl p-6 slide-up">
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 bg-matcha/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fa-solid fa-plane-departure text-matcha text-2xl"></i>
+                </div>
+                <h2 class="text-xl font-semibold text-dark-grey">Welcome to 旅途</h2>
+                <p class="text-latte text-sm mt-1">Let's set up your trip</p>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="text-sm text-latte mb-1 block">目的地</label>
+                    <input type="text" id="wizard-destination" placeholder="例如：Tokyo, Paris, London..."
+                        class="w-full px-4 py-3 bg-milk-tea rounded-xl text-dark-grey placeholder-latte/50 border border-transparent">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-sm text-latte mb-1 block">開始日期</label>
+                        <input type="date" id="wizard-start" onchange="updateTripDuration()"
+                            class="w-full px-4 py-3 bg-milk-tea rounded-xl text-dark-grey border border-transparent">
+                    </div>
+                    <div>
+                        <label class="text-sm text-latte mb-1 block">結束日期</label>
+                        <input type="date" id="wizard-end" onchange="updateTripDuration()"
+                            class="w-full px-4 py-3 bg-milk-tea rounded-xl text-dark-grey border border-transparent">
+                    </div>
+                </div>
+
+                <!-- 天數顯示 -->
+                <div id="trip-duration-display" class="bg-matcha/10 rounded-xl p-3 text-center hidden">
+                    <p class="text-sm text-latte">行程天數</p>
+                    <p id="trip-duration-text" class="text-lg font-semibold text-matcha"></p>
+                </div>
+
+                <button onclick="saveWizard()" class="w-full py-4 btn-primary rounded-xl text-white font-medium mt-4">
+                    Start My Journey <i class="fa-solid fa-arrow-right ml-2"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Itinerary Modal -->
+    <div id="add-itinerary-modal" class="fixed inset-0 bg-black/50 z-50 flex items-end justify-center hidden">
+        <div class="bg-white w-full max-w-[450px] rounded-t-3xl p-6 slide-up max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-6">
+                <h2 id="itinerary-modal-title" class="text-lg font-semibold text-dark-grey">新增行程</h2>
+                <button onclick="closeAddItinerary()"
+                    class="w-8 h-8 rounded-full bg-milk-tea flex items-center justify-center text-latte">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Hidden field for edit mode -->
+            <input type="hidden" id="itinerary-edit-id" value="">
+
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-sm text-latte mb-1 block"><i class="fa-regular fa-clock mr-1"></i>時間</label>
+                        <input type="time" id="itinerary-time"
+                            class="w-full px-4 py-3 bg-milk-tea rounded-xl text-dark-grey border border-transparent">
+                    </div>
+                    <div>
+                        <label class="text-sm text-latte mb-1 block"><i
+                                class="fa-solid fa-location-dot mr-1"></i>地點</label>
+                        <input type="text" id="itinerary-location" placeholder="例如：淺草寺"
+                            class="w-full px-4 py-3 bg-milk-tea rounded-xl text-dark-grey placeholder-latte/50 border border-transparent">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-sm text-latte mb-1 block"><i class="fa-solid fa-utensils mr-1"></i>美食</label>
+                    <input type="text" id="itinerary-food" placeholder="推薦餐廳或美食..."
+                        class="w-full px-4 py-3 bg-milk-tea rounded-xl text-dark-grey placeholder-latte/50 border border-transparent">
+                </div>
+
+                <div>
+                    <label class="text-sm text-latte mb-1 block"><i class="fa-solid fa-train mr-1"></i>交通</label>
+                    <input type="text" id="itinerary-transport" placeholder="交通方式（地鐵、公車、步行...）"
+                        class="w-full px-4 py-3 bg-milk-tea rounded-xl text-dark-grey placeholder-latte/50 border border-transparent">
+                </div>
+
+                <div>
+                    <label class="text-sm text-latte mb-1 block"><i
+                            class="fa-regular fa-note-sticky mr-1"></i>備註</label>
+                    <textarea id="itinerary-note" rows="2" placeholder="其他備註..."
+                        class="w-full px-4 py-3 bg-milk-tea rounded-xl text-dark-grey placeholder-latte/50 border border-transparent resize-none"></textarea>
+                </div>
+
+                <button onclick="saveItinerary()" class="w-full py-4 btn-primary rounded-xl text-white font-medium">
+                    <i class="fa-solid fa-check mr-2"></i><span id="itinerary-save-btn-text">儲存行程</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="fixed inset-0 bg-black/50 z-50 flex items-end justify-center hidden">
+        <div class="bg-white w-full max-w-[450px] rounded-t-3xl p-6 slide-up">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-lg font-semibold text-dark-grey">Settings</h2>
+                <button onclick="closeSettings()"
+                    class="w-8 h-8 rounded-full bg-milk-tea flex items-center justify-center text-latte">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="text-sm text-latte mb-1 block">目的地</label>
+                    <input type="text" id="settings-destination" placeholder="例如：Tokyo, Paris, London..."
+                        class="w-full px-4 py-3 bg-milk-tea rounded-xl text-dark-grey placeholder-latte/50 border border-transparent">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-sm text-latte mb-1 block">Start Date</label>
+                        <input type="date" id="settings-start"
+                            class="w-full px-4 py-3 bg-milk-tea rounded-xl text-dark-grey border border-transparent">
+                    </div>
+                    <div>
+                        <label class="text-sm text-latte mb-1 block">End Date</label>
+                        <input type="date" id="settings-end"
+                            class="w-full px-4 py-3 bg-milk-tea rounded-xl text-dark-grey border border-transparent">
+                    </div>
+                </div>
+
+                <div class="pt-4 border-t border-milk-tea">
+                    <button onclick="resetAllData()"
+                        class="w-full py-3 bg-red-50 text-red-500 rounded-xl font-medium hover:bg-red-100 transition-colors">
+                        <i class="fa-solid fa-trash mr-2"></i>Reset All Data
+                    </button>
+                </div>
+
+                <button onclick="saveSettings()" class="w-full py-4 btn-primary rounded-xl text-white font-medium">
+                    <i class="fa-solid fa-check mr-2"></i>Save Changes
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        // ==========================================
+        // State Management
+        // ==========================================
+        let state = {
+            config: {
+                destination: '',
+                startDate: '',
+                endDate: '',
+                currency: 'JPY',
+                rate: 0.22,
+                centerCoords: [35.6762, 139.6503] // Default: Tokyo
+            },
+            itinerary: [],
+            expenses: [],
+            selectedDate: '',
+            currentPage: 'itinerary'
+        };
+
+        let map = null;
+        let markers = [];
+        let userMarker = null;
+
+        // Mock weather data
+        const weatherIcons = [
+            { icon: 'fa-sun', temp: '24°C', color: 'text-yellow-500' },
+            { icon: 'fa-cloud-sun', temp: '18°C', color: 'text-gray-500' },
+            { icon: 'fa-cloud', temp: '15°C', color: 'text-gray-400' },
+            { icon: 'fa-cloud-rain', temp: '12°C', color: 'text-blue-400' },
+            { icon: 'fa-snowflake', temp: '2°C', color: 'text-blue-300' }
+        ];
+
+        // Destination configurations
+        const destinationConfig = {
+            'Tokyo': { currency: 'JPY', rate: 0.22, coords: [35.6762, 139.6503] },
+            'London': { currency: 'GBP', rate: 41.5, coords: [51.5074, -0.1278] },
+            'Paris': { currency: 'EUR', rate: 35.2, coords: [48.8566, 2.3522] },
+            'New York': { currency: 'USD', rate: 32.0, coords: [40.7128, -74.0060] }
+        };
+
+        // Mock location offsets for itinerary items
+        const locationOffsets = [
+            { lat: 0.01, lng: 0.02 },
+            { lat: -0.015, lng: 0.01 },
+            { lat: 0.02, lng: -0.01 },
+            { lat: -0.01, lng: -0.02 },
+            { lat: 0.005, lng: 0.025 }
+        ];
+
+        // ==========================================
+        // LocalStorage Functions
+        // ==========================================
+        function loadState() {
+            const saved = localStorage.getItem('travelAppState');
+            if (saved) {
+                state = JSON.parse(saved);
+                return true;
+            }
+            return false;
+        }
+
+        function saveState() {
+            localStorage.setItem('travelAppState', JSON.stringify(state));
+        }
+
+        // ==========================================
+        // Initialization
+        // ==========================================
+        function init() {
+            const hasData = loadState();
+
+            if (!hasData || !state.config.destination) {
+                showWizard();
+            } else {
+                initApp();
+            }
+        }
+
+        function initApp() {
+            updateHeader();
+            renderDates();
+            updateCurrencyDisplay();
+            renderExpenses();
+
+            // Set default selected date
+            if (state.config.startDate) {
+                state.selectedDate = state.config.startDate;
+            }
+
+            renderItinerary();
+        }
+
+        // ==========================================
+        // Setup Wizard
+        // ==========================================
+        function showWizard() {
+            document.getElementById('wizard-modal').classList.remove('hidden');
+
+            // Set default dates
+            const today = new Date();
+            const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+            document.getElementById('wizard-start').value = formatDateInput(today);
+            document.getElementById('wizard-end').value = formatDateInput(nextWeek);
+
+            // 初始化天數顯示
+            updateTripDuration();
+        }
+
+        // 計算並顯示行程天數
+        function updateTripDuration() {
+            const startDate = document.getElementById('wizard-start').value;
+            const endDate = document.getElementById('wizard-end').value;
+            const displayEl = document.getElementById('trip-duration-display');
+            const textEl = document.getElementById('trip-duration-text');
+
+            if (startDate && endDate) {
+                const start = new Date(startDate);
+                const end = new Date(endDate);
+                const diffTime = end - start;
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+                if (diffDays > 0) {
+                    displayEl.classList.remove('hidden');
+                    textEl.textContent = `${formatDateShort(startDate)} ~ ${formatDateShort(endDate)}，共 ${diffDays} 天`;
+                } else {
+                    displayEl.classList.add('hidden');
+                }
+            } else {
+                displayEl.classList.add('hidden');
+            }
+        }
+
+        function saveWizard() {
+            const destination = document.getElementById('wizard-destination').value.trim();
+            const startDate = document.getElementById('wizard-start').value;
+            const endDate = document.getElementById('wizard-end').value;
+
+            if (!destination || !startDate || !endDate) {
+                showToast('請填寫所有欄位');
+                return;
+            }
+
+            if (new Date(endDate) < new Date(startDate)) {
+                showToast('結束日期必須在開始日期之後');
+                return;
+            }
+
+            // 根據目的地設定貨幣（支援自由輸入，預設使用 USD）
+            const config = destinationConfig[destination] || {
+                currency: 'USD',
+                rate: 32.0,
+                coords: [35.6762, 139.6503] // 預設座標
+            };
+
+            state.config = {
+                destination,
+                startDate,
+                endDate,
+                currency: config.currency,
+                rate: config.rate,
+                centerCoords: config.coords
+            };
+
+            state.selectedDate = startDate;
+
+            saveState();
+
+            document.getElementById('wizard-modal').classList.add('hidden');
+            initApp();
+
+            showToast('行程設定完成！🎉');
+        }
+
+        // ==========================================
+        // Settings
+        // ==========================================
+        function openSettings() {
+            document.getElementById('settings-modal').classList.remove('hidden');
+            document.getElementById('settings-destination').value = state.config.destination;
+            document.getElementById('settings-start').value = state.config.startDate;
+            document.getElementById('settings-end').value = state.config.endDate;
+        }
+
+        function closeSettings() {
+            document.getElementById('settings-modal').classList.add('hidden');
+        }
+
+        function saveSettings() {
+            const destination = document.getElementById('settings-destination').value.trim();
+            const startDate = document.getElementById('settings-start').value;
+            const endDate = document.getElementById('settings-end').value;
+
+            if (!destination) {
+                showToast('請填寫目的地');
+                return;
+            }
+
+            if (new Date(endDate) < new Date(startDate)) {
+                showToast('結束日期必須在開始日期之後');
+                return;
+            }
+
+            const config = destinationConfig[destination] || {
+                currency: 'USD',
+                rate: 32.0,
+                coords: [35.6762, 139.6503]
+            };
+
+            state.config = {
+                destination,
+                startDate,
+                endDate,
+                currency: config.currency,
+                rate: config.rate,
+                centerCoords: config.coords
+            };
+
+            saveState();
+            closeSettings();
+            initApp();
+
+            showToast('設定已儲存！');
+        }
+
+        function resetAllData() {
+            if (confirm('確定要重置所有資料嗎？此操作無法復原。')) {
+                localStorage.removeItem('travelAppState');
+                location.reload();
+            }
+        }
+
+        // ==========================================
+        // Header
+        // ==========================================
+        function updateHeader() {
+            const destEl = document.getElementById('header-destination');
+            if (state.config.destination) {
+                const start = formatDateShort(state.config.startDate);
+                const end = formatDateShort(state.config.endDate);
+                destEl.textContent = `${state.config.destination} · ${start} - ${end}`;
+            }
+        }
+
+        // ==========================================
+        // Date Swiper
+        // ==========================================
+        function renderDates() {
+            const container = document.getElementById('date-swiper');
+            container.innerHTML = '';
+
+            if (!state.config.startDate || !state.config.endDate) return;
+
+            const start = new Date(state.config.startDate);
+            const end = new Date(state.config.endDate);
+            const days = [];
+
+            for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                days.push(new Date(d));
+            }
+
+            days.forEach((date, index) => {
+                const dateStr = formatDateInput(date);
+                const isActive = dateStr === state.selectedDate;
+
+                const pill = document.createElement('button');
+                pill.className = `date-pill flex-shrink-0 px-4 py-3 rounded-2xl transition-all duration-300 ${isActive ? 'active' : 'bg-white shadow-md text-dark-grey hover:shadow-lg'
+                    }`;
+                pill.onclick = () => selectDate(dateStr);
+
+                pill.innerHTML = `
+                    <div class="text-xs opacity-70">Day ${index + 1}</div>
+                    <div class="font-medium">${date.getDate()}</div>
+                    <div class="text-xs">${date.toLocaleDateString('en', { weekday: 'short' })}</div>
+                `;
+
+                container.appendChild(pill);
+            });
+
+            // Scroll to active date
+            setTimeout(() => {
+                const activeEl = container.querySelector('.date-pill.active');
+                if (activeEl) {
+                    activeEl.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+                }
+            }, 100);
+        }
+
+        function selectDate(dateStr) {
+            state.selectedDate = dateStr;
+            saveState();
+            renderDates();
+            renderItinerary();
+        }
+
+        // ==========================================
+        // Itinerary
+        // ==========================================
+        function renderItinerary() {
+            const container = document.getElementById('itinerary-list');
+            const emptyState = document.getElementById('itinerary-empty');
+            const dateDisplay = document.getElementById('selected-date-display');
+
+            // Update selected date display
+            if (state.selectedDate) {
+                const date = new Date(state.selectedDate);
+                dateDisplay.textContent = date.toLocaleDateString('en', {
+                    weekday: 'long',
+                    month: 'long',
+                    day: 'numeric'
+                });
+            }
+
+            // Filter items for selected date
+            const items = state.itinerary.filter(item => item.date === state.selectedDate);
+
+            if (items.length === 0) {
+                container.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+
+            // Sort by time
+            items.sort((a, b) => a.time.localeCompare(b.time));
+
+            container.innerHTML = items.map((item, index) => {
+                const weather = weatherIcons[Math.floor(Math.random() * weatherIcons.length)];
+
+                return `
+                    <div class="itinerary-card bg-white rounded-2xl shadow-md p-4 fade-in" style="animation-delay: ${index * 0.1}s">
+                        <div class="flex items-start justify-between">
+                            <div class="flex gap-4 flex-1">
+                                <div class="text-center min-w-[50px]">
+                                    <div class="text-lg font-semibold text-matcha">${item.time}</div>
+                                    <div class="mt-1 ${weather.color}">
+                                        <i class="fa-solid ${weather.icon}"></i>
+                                        <div class="text-xs">${weather.temp}</div>
+                                    </div>
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="font-medium text-dark-grey">${item.location}</h3>
+                                    ${item.food ? `<p class="text-sm text-latte mt-1"><i class="fa-solid fa-utensils text-matcha mr-1"></i>${item.food}</p>` : ''}
+                                    ${item.transport ? `<p class="text-sm text-latte mt-1"><i class="fa-solid fa-train text-matcha mr-1"></i>${item.transport}</p>` : ''}
+                                    ${item.note ? `<p class="text-sm text-latte/70 mt-1"><i class="fa-regular fa-note-sticky mr-1"></i>${item.note}</p>` : ''}
+                                </div>
+                            </div>
+                            <div class="flex gap-1">
+                                <button onclick="editItinerary('${item.id}')" class="w-8 h-8 rounded-full hover:bg-matcha/10 flex items-center justify-center text-latte hover:text-matcha transition-colors">
+                                    <i class="fa-solid fa-pen text-sm"></i>
+                                </button>
+                                <button onclick="deleteItinerary('${item.id}')" class="w-8 h-8 rounded-full hover:bg-red-50 flex items-center justify-center text-latte hover:text-red-400 transition-colors">
+                                    <i class="fa-solid fa-trash-can text-sm"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function openAddItinerary() {
+            document.getElementById('add-itinerary-modal').classList.remove('hidden');
+            document.getElementById('itinerary-modal-title').textContent = '新增行程';
+            document.getElementById('itinerary-save-btn-text').textContent = '儲存行程';
+            document.getElementById('itinerary-edit-id').value = '';
+            document.getElementById('itinerary-time').value = '';
+            document.getElementById('itinerary-location').value = '';
+            document.getElementById('itinerary-food').value = '';
+            document.getElementById('itinerary-transport').value = '';
+            document.getElementById('itinerary-note').value = '';
+        }
+
+        function editItinerary(id) {
+            const item = state.itinerary.find(i => i.id === id);
+            if (!item) return;
+
+            document.getElementById('add-itinerary-modal').classList.remove('hidden');
+            document.getElementById('itinerary-modal-title').textContent = '編輯行程';
+            document.getElementById('itinerary-save-btn-text').textContent = '更新行程';
+            document.getElementById('itinerary-edit-id').value = id;
+            document.getElementById('itinerary-time').value = item.time || '';
+            document.getElementById('itinerary-location').value = item.location || '';
+            document.getElementById('itinerary-food').value = item.food || '';
+            document.getElementById('itinerary-transport').value = item.transport || '';
+            document.getElementById('itinerary-note').value = item.note || '';
+        }
+
+        function closeAddItinerary() {
+            document.getElementById('add-itinerary-modal').classList.add('hidden');
+            document.getElementById('itinerary-edit-id').value = '';
+        }
+
+        function saveItinerary() {
+            const editId = document.getElementById('itinerary-edit-id').value;
+            const time = document.getElementById('itinerary-time').value;
+            const location = document.getElementById('itinerary-location').value;
+            const food = document.getElementById('itinerary-food').value;
+            const transport = document.getElementById('itinerary-transport').value;
+            const note = document.getElementById('itinerary-note').value;
+
+            if (!time || !location) {
+                showToast('請填寫時間和地點');
+                return;
+            }
+
+            if (editId) {
+                // 編輯模式
+                const itemIndex = state.itinerary.findIndex(i => i.id === editId);
+                if (itemIndex !== -1) {
+                    state.itinerary[itemIndex] = {
+                        ...state.itinerary[itemIndex],
+                        time,
+                        location,
+                        food,
+                        transport,
+                        note
+                    };
+                }
+                showToast('行程已更新！');
+            } else {
+                // 新增模式
+                const newItem = {
+                    id: generateId(),
+                    date: state.selectedDate,
+                    time,
+                    location,
+                    food,
+                    transport,
+                    note
+                };
+                state.itinerary.push(newItem);
+                showToast('行程已新增！');
+            }
+
+            saveState();
+            closeAddItinerary();
+            renderItinerary();
+        }
+
+        function deleteItinerary(id) {
+            if (!confirm('確定要刪除此行程嗎？')) return;
+
+            state.itinerary = state.itinerary.filter(item => item.id !== id);
+            saveState();
+            renderItinerary();
+            showToast('行程已刪除');
+        }
+
+        // ==========================================
+        // Map
+        // ==========================================
+        function initMap() {
+            if (map) {
+                map.remove();
+            }
+
+            const coords = state.config.centerCoords || [35.6762, 139.6503];
+
+            map = L.map('map').setView(coords, 13);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            // Add markers for itinerary items
+            addItineraryMarkers();
+
+            // Try to get user location
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const userCoords = [position.coords.latitude, position.coords.longitude];
+
+                        const userIcon = L.divIcon({
+                            className: 'user-marker',
+                            html: `<div style="width: 20px; height: 20px; background: #4285F4; border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>`,
+                            iconSize: [20, 20],
+                            iconAnchor: [10, 10]
+                        });
+
+                        userMarker = L.marker(userCoords, { icon: userIcon })
+                            .addTo(map)
+                            .bindPopup('You are here');
+                    },
+                    (error) => {
+                        console.log('Geolocation error:', error);
+                    }
+                );
+            }
+        }
+
+        function addItineraryMarkers() {
+            // Clear existing markers
+            markers.forEach(m => map.removeLayer(m));
+            markers = [];
+
+            const centerCoords = state.config.centerCoords || [35.6762, 139.6503];
+
+            state.itinerary.forEach((item, index) => {
+                const offset = locationOffsets[index % locationOffsets.length];
+                const coords = [
+                    centerCoords[0] + offset.lat,
+                    centerCoords[1] + offset.lng
+                ];
+
+                const customIcon = L.divIcon({
+                    className: 'custom-marker',
+                    html: `<div style="width: 32px; height: 32px; background: linear-gradient(135deg, #A8B5A2, #8C7B70); border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;">${index + 1}</div>`,
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 16]
+                });
+
+                const marker = L.marker(coords, { icon: customIcon })
+                    .addTo(map)
+                    .bindPopup(`
+                        <div style="text-align: center; min-width: 120px;">
+                            <strong>${item.location}</strong><br>
+                            <span style="color: #8C7B70;">${item.time} · ${formatDateShort(item.date)}</span>
+                        </div>
+                    `);
+
+                markers.push(marker);
+            });
+        }
+
+        function centerMyLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const coords = [position.coords.latitude, position.coords.longitude];
+                        map.setView(coords, 15);
+
+                        if (userMarker) {
+                            userMarker.openPopup();
+                        }
+                    },
+                    (error) => {
+                        showToast('Unable to get your location');
+                    }
+                );
+            } else {
+                showToast('Geolocation not supported');
+            }
+        }
+
+        function showAllMarkers() {
+            if (markers.length === 0) {
+                showToast('No locations to show');
+                return;
+            }
+
+            const group = L.featureGroup(markers);
+            map.fitBounds(group.getBounds().pad(0.2));
+        }
+
+        // ==========================================
+        // Expenses
+        // ==========================================
+        function updateCurrencyDisplay() {
+            const currencyInfo = document.getElementById('currency-info');
+            const currencyLabel = document.getElementById('currency-label');
+
+            currencyInfo.textContent = `1 ${state.config.currency} ≈ ${state.config.rate} TWD`;
+            currencyLabel.textContent = state.config.currency;
+        }
+
+        function calculateExpense() {
+            const price = parseFloat(document.getElementById('expense-price').value) || 0;
+            const converted = (price * state.config.rate).toFixed(0);
+
+            document.getElementById('converted-amount').textContent = `≈ ${numberWithCommas(converted)} TWD`;
+        }
+
+        function addExpense() {
+            const name = document.getElementById('expense-name').value.trim();
+            const price = parseFloat(document.getElementById('expense-price').value) || 0;
+
+            if (!name || price <= 0) {
+                showToast('Please enter item name and price');
+                return;
+            }
+
+            const expense = {
+                id: generateId(),
+                name,
+                price,
+                currency: state.config.currency,
+                converted: price * state.config.rate,
+                date: new Date().toISOString()
+            };
+
+            state.expenses.push(expense);
+            saveState();
+
+            // Clear inputs
+            document.getElementById('expense-name').value = '';
+            document.getElementById('expense-price').value = '';
+            document.getElementById('converted-amount').textContent = '≈ 0 TWD';
+
+            renderExpenses();
+            showToast('Expense added!');
+        }
+
+        function renderExpenses() {
+            const container = document.getElementById('expense-list');
+            const emptyState = document.getElementById('expense-empty');
+            const totalEl = document.getElementById('total-expenses');
+
+            if (state.expenses.length === 0) {
+                container.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                totalEl.textContent = 'Total: 0 TWD';
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+
+            // Calculate total
+            const total = state.expenses.reduce((sum, exp) => sum + exp.converted, 0);
+            totalEl.textContent = `Total: ${numberWithCommas(total.toFixed(0))} TWD`;
+
+            // Sort by date (newest first)
+            const sorted = [...state.expenses].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            container.innerHTML = sorted.map(exp => `
+                <div class="flex items-center justify-between py-3 border-b border-milk-tea last:border-0 fade-in">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-matcha/10 flex items-center justify-center">
+                            <i class="fa-solid fa-receipt text-matcha"></i>
+                        </div>
+                        <div>
+                            <p class="font-medium text-dark-grey text-sm">${exp.name}</p>
+                            <p class="text-xs text-latte">${numberWithCommas(exp.price)} ${exp.currency}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm font-medium text-matcha">${numberWithCommas(exp.converted.toFixed(0))} TWD</span>
+                        <button onclick="deleteExpense('${exp.id}')" class="w-6 h-6 rounded-full hover:bg-red-50 flex items-center justify-center text-latte hover:text-red-400 transition-colors">
+                            <i class="fa-solid fa-xmark text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function deleteExpense(id) {
+            state.expenses = state.expenses.filter(exp => exp.id !== id);
+            saveState();
+            renderExpenses();
+            showToast('Expense deleted');
+        }
+
+        // ==========================================
+        // Navigation
+        // ==========================================
+        function switchPage(page) {
+            state.currentPage = page;
+
+            // Update active states
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+
+            document.getElementById(`page-${page}`).classList.add('active');
+            document.querySelector(`[data-page="${page}"]`).classList.add('active');
+
+            // Initialize map when switching to map page
+            if (page === 'map') {
+                setTimeout(() => {
+                    initMap();
+                }, 100);
+            }
+        }
+
+        // ==========================================
+        // Utility Functions
+        // ==========================================
+        function generateId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2);
+        }
+
+        function formatDateInput(date) {
+            return date.toISOString().split('T')[0];
+        }
+
+        function formatDateShort(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en', { month: 'short', day: 'numeric' });
+        }
+
+        function numberWithCommas(x) {
+            return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        }
+
+        function showToast(message) {
+            // Remove existing toast
+            const existing = document.querySelector('.toast');
+            if (existing) existing.remove();
+
+            const toast = document.createElement('div');
+            toast.className = 'toast fixed top-20 left-1/2 -translate-x-1/2 bg-dark-grey text-white px-6 py-3 rounded-full shadow-lg z-50 text-sm fade-in';
+            toast.textContent = message;
+
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s';
+                setTimeout(() => toast.remove(), 300);
+            }, 2000);
+        }
+
+        // ==========================================
+        // Initialize App
+        // ==========================================
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+
+</html>
