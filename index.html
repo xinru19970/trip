@@ -165,12 +165,100 @@
             opacity: 1;
             animation: fadeIn 0.3s ease-out;
         }
+
+        /* ==========================================
+           RWD 響應式設計
+           ========================================== */
+
+        /* 手機版 (預設) - 全螢幕 */
+        .app-container {
+            width: 100%;
+            max-width: 100%;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .app-nav {
+            width: 100%;
+            left: 0;
+            transform: none;
+            border-radius: 24px 24px 0 0;
+        }
+
+        .modal-content {
+            width: 100%;
+            max-width: 100%;
+        }
+
+        /* 平板以上 (768px+) - 置中顯示 */
+        @media (min-width: 768px) {
+            body {
+                background: linear-gradient(135deg, #e8e4de 0%, #d4cfc7 100%);
+                display: flex;
+                justify-content: center;
+                align-items: flex-start;
+                padding: 20px 0;
+            }
+
+            .app-container {
+                max-width: 450px;
+                min-height: calc(100vh - 40px);
+                border-radius: 24px;
+                box-shadow: 0 25px 80px rgba(0, 0, 0, 0.15);
+                overflow: hidden;
+                position: relative;
+            }
+
+            .app-nav {
+                max-width: 450px;
+                left: 50%;
+                transform: translateX(-50%);
+                border-radius: 24px 24px 0 0;
+            }
+
+            .modal-content {
+                max-width: 450px;
+            }
+
+            /* 電腦版地圖高度調整 */
+            #page-map .map-wrapper {
+                height: calc(100vh - 280px);
+            }
+        }
+
+        /* 大螢幕 (1024px+) */
+        @media (min-width: 1024px) {
+            body {
+                padding: 40px 0;
+            }
+
+            .app-container {
+                min-height: calc(100vh - 80px);
+                box-shadow: 0 30px 100px rgba(0, 0, 0, 0.2);
+            }
+
+            /* 地圖容器調整 */
+            .map-wrapper {
+                height: calc(100vh - 300px) !important;
+            }
+        }
+
+        /* Safe area for iOS devices */
+        @supports (padding-bottom: env(safe-area-inset-bottom)) {
+            .app-nav {
+                padding-bottom: calc(16px + env(safe-area-inset-bottom));
+            }
+
+            .app-container {
+                padding-bottom: calc(80px + env(safe-area-inset-bottom));
+            }
+        }
     </style>
 </head>
 
 <body class="bg-milk-tea min-h-screen">
     <!-- App Container -->
-    <div class="max-w-[450px] mx-auto min-h-screen bg-milk-tea relative pb-20">
+    <div class="app-container bg-milk-tea relative pb-20 md:pb-24">
 
         <!-- Header -->
         <header class="sticky top-0 z-40 bg-milk-tea/95 backdrop-blur-sm px-5 py-4">
@@ -218,7 +306,8 @@
 
         <!-- Page: Map -->
         <div id="page-map" class="page px-5">
-            <div class="bg-white rounded-2xl shadow-md overflow-hidden" style="height: calc(100vh - 180px);">
+            <div class="map-wrapper bg-white rounded-2xl shadow-md overflow-hidden"
+                style="height: calc(100vh - 200px); min-height: 400px;">
                 <div id="map"></div>
             </div>
             <div class="mt-4 flex gap-2">
@@ -292,8 +381,7 @@
         </div>
 
         <!-- Bottom Navigation -->
-        <nav
-            class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[450px] bg-white/95 backdrop-blur-sm shadow-lg rounded-t-3xl px-6 py-4 z-50">
+        <nav class="app-nav fixed bottom-0 bg-white/95 backdrop-blur-sm shadow-lg px-6 py-4 z-50">
             <div class="flex justify-around">
                 <button onclick="switchPage('itinerary')"
                     class="nav-btn active flex flex-col items-center gap-1 text-latte transition-colors"
@@ -316,8 +404,8 @@
     </div>
 
     <!-- Setup Wizard Modal -->
-    <div id="wizard-modal" class="fixed inset-0 bg-black/50 z-50 flex items-end justify-center hidden">
-        <div class="bg-white w-full max-w-[450px] rounded-t-3xl p-6 slide-up">
+    <div id="wizard-modal" class="fixed inset-0 bg-black/50 z-50 flex items-end md:items-center justify-center hidden">
+        <div class="modal-content bg-white w-full rounded-t-3xl md:rounded-3xl p-6 slide-up md:mx-4">
             <div class="text-center mb-6">
                 <div class="w-16 h-16 bg-matcha/20 rounded-full flex items-center justify-center mx-auto mb-4">
                     <i class="fa-solid fa-plane-departure text-matcha text-2xl"></i>
@@ -359,8 +447,10 @@
     </div>
 
     <!-- Add/Edit Itinerary Modal -->
-    <div id="add-itinerary-modal" class="fixed inset-0 bg-black/50 z-50 flex items-end justify-center hidden">
-        <div class="bg-white w-full max-w-[450px] rounded-t-3xl p-6 slide-up max-h-[90vh] overflow-y-auto">
+    <div id="add-itinerary-modal"
+        class="fixed inset-0 bg-black/50 z-50 flex items-end md:items-center justify-center hidden">
+        <div
+            class="modal-content bg-white w-full rounded-t-3xl md:rounded-3xl p-6 slide-up max-h-[90vh] overflow-y-auto md:mx-4">
             <div class="flex items-center justify-between mb-6">
                 <h2 id="itinerary-modal-title" class="text-lg font-semibold text-dark-grey">新增行程</h2>
                 <button onclick="closeAddItinerary()"
@@ -414,8 +504,9 @@
     </div>
 
     <!-- Settings Modal -->
-    <div id="settings-modal" class="fixed inset-0 bg-black/50 z-50 flex items-end justify-center hidden">
-        <div class="bg-white w-full max-w-[450px] rounded-t-3xl p-6 slide-up">
+    <div id="settings-modal"
+        class="fixed inset-0 bg-black/50 z-50 flex items-end md:items-center justify-center hidden">
+        <div class="modal-content bg-white w-full rounded-t-3xl md:rounded-3xl p-6 slide-up md:mx-4">
             <div class="flex items-center justify-between mb-6">
                 <h2 class="text-lg font-semibold text-dark-grey">Settings</h2>
                 <button onclick="closeSettings()"
